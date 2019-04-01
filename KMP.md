@@ -1,4 +1,6 @@
-# 图解KMP算法
+# 常见字符串匹配算法以及JS的Sring.prototype.indexOf()源码分析
+提到常见的字符串匹配算法，一般来说我们会想到一个是朴素算法（暴力破解），一个是比较巧妙的KMP算法
+## KMP算法图解
 如果要在一个主串ABCDABCDEF里找关键字ABCDABE，有哪些方法呢？
 我们很容易想到用暴力破解方法实现关键字搜索，如下图所示
 
@@ -158,3 +160,58 @@ function KMP (M, P) {
   }
 }
 ```
+看了上述KMP算法分析，各位童鞋是否觉得KMP在字符串搜索算法算很不错呢，我以前也这样以为，直到后来看到Boyer-Moore算法才发现，啊~当时我还太天真，Boyer-Moore算法平均要比KMP快3-5倍，在实际的工业生产中，比如GNU grep,还有各种文本编辑器的查找功能（Ctrl+F）大多用的BM（Boyer-Moore）算法。
+
+KMP算法利用的是pattern的前缀，而Robert S. Boyer教授和J Strother Moore教授发明的BM算法利用的则是pattern的后缀，关于BM算法的介绍，限于篇幅，本文就不详细介绍了，推荐阮一峰老师的博文，里面对于BM算法有详细的介绍[Boyer-Moore](http://www.ruanyifeng.com/blog/2013/05/boyer-moore_string_search_algorithm.html),基于BM算法还有Horspool算法，感兴趣的同鞋可以自行查阅资料
+
+下图是朴素算法，KMP算法，简化BM算法，BM算法，Horspool算法关于不同长度pattern的性能比较
+
+<img src="https://raw.githubusercontent.com/earEastYue/markdownPhotos/master/photos/KMPpic/compare.png" height="200">
+
+由图我们可以清楚发现，当pattern长度越长，BM算法的表现越好，当长度大于7时，BM简直是一骑绝尘，把KMP狠甩在后面
+
+那么现在，在了解常用的字符串匹配算法后，我们一起来看看js中indexOf()是怎么实现的
+v8引擎源码实现[源码地址看这里](https://github.com/v8/v8/blob/master/src/string-search.h)
+
+在src/string-search.h文件中一共定义了五种搜索算法：
+1. SingleCharSearch
+2. LinearSearch
+3. InitialSearch
+4. BoyerMooreHorspoolSearch
+5. BoyerMooreSearch
+
+具体使用哪种，是在初始化StringSearch时根据pattern长度定义的
+
+部分代码如下
+
+```
+StringSearch(Isolate* isolate, Vector<const PatternChar> pattern)
+      : isolate_(isolate),
+        pattern_(pattern),
+        start_(Max(0, pattern.length() - kBMMaxShift)) {
+    if (sizeof(PatternChar) > sizeof(SubjectChar)) {
+      if (!IsOneByteString(pattern_)) {
+        strategy_ = &FailSearch;
+        return;
+      }
+    }
+    int pattern_length = pattern_.length();
+    if (pattern_length < kBMMinPatternLength) {
+      if (pattern_length == 1) {
+        strategy_ = &SingleCharSearch;
+        return;
+      }
+      strategy_ = &LinearSearch;
+      return;
+    }
+    strategy_ = &InitialSearch;
+  }
+```
+v8是c++实现的，不写c++的同鞋看着可能不太习惯，没关系，上面的代码总结一下就是下图（设pattern长度为length，其中kBMMinPatternLength在源码中为7)
+
+<img src="https://raw.githubusercontent.com/earEastYue/markdownPhotos/master/photos/KMPpic/indexOf.png" height="200">
+
+可以看到indexOf()根据传入的pattern选择相应长度下效率最高的匹配算法，真真是少林武功，集各家之所长啊~
+
+总之一句话indexOf()，你值得拥有~
+
