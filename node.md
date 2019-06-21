@@ -34,9 +34,8 @@ while (true) {
     // tick 开始 
 
     lock (queue) {
-        var tickEvents = copy(queue); 
-// 将当前队列中的条目复制的线程自有的内存中 
-        queue.empty(); // .. 清空共享的队列 
+        var tickEvents = copy(queue); // 将当前队列中的条目复制的线程自有的内存中 
+        queue.empty(); // 清空共享的队列 
     }
 
     for (var i = 0; i < tickEvents.length; i++) {
@@ -55,6 +54,7 @@ while (true) {
 + crypto 中的 CPU 密集型函数(crypto模块提供通用的加密和哈希算法)
 + 所有使用libuv 工作队列异步调用 C/C++ 库的本地模块
 
+## Node.js层次结构
 
 Node.js被分为了四层，分别是应用层、V8引擎层、Node API层 和 LIBUV层
 
@@ -63,7 +63,7 @@ Node.js被分为了四层，分别是应用层、V8引擎层、Node API层 和 L
 + NodeAPI层：为上层模块提供系统调用，一般是由C语言来实现，和操作系统进行交互 
 + LIBUV层：是跨平台的底层封装，实现了事件循环、文件操作等，是 Node.js 实现异步的核心 
 
-无论是 Linux 平台还是 Windows 平台，Node.js 内部都是通过 线程池 来完成异步 I/O 操作的，而 LIBUV 针对不同平台的差异性实现了统一调用。因此，Node.js 的单线程仅仅是指 JavaScript 运行在单线程中，而并非 Node.js 是单线程。
+无论是 Linux 平台还是 Windows 平台，Node.js 内部都是通过 线程池 来完成异步 I/O 操作的，而 LIBUV 针对不同平台的差异性实现了统一调用。**因此，Node.js 的单线程仅仅是指 JavaScript 运行在单线程中，而并非 Node.js 是单线程。**
 
 ## 当Event loop遇到CPU密集型任务
 
@@ -90,18 +90,18 @@ function fibo (n) {
 
 (function fiboLoop () {
   process.stdout.write(fibo(45).toString());
-  process.nextTick(fiboLoop);
+  setTimeout(fiboLoop, 0);
 })();
 
 (function spinForever() {
   process.stdout.write(".");
-  process.nextTick(spinForever);
+  setTimeout(spinForever, 0);
 })();
 ```
 计算斐波那契数列是一个 CPU 密集型的任务，event loop 要在计算结果出来后才有机会进入下一个 tick，执行输出.的简单任务，感觉就像服务器死掉了一样。
 
 ## 被闲置的 CPU 内核
-现在的操作系统都支持多核，那么每个线程都可以得到一个不同自己的CPU/内核，实现真正的“并行运算”。在这种情况下，多线程程序可以提高资源使用效率。Node.js是单线程程序，它只有一个event loop，也只占用一个CPU/内核。当 Node.j程序的event loop被CPU密集型的任务占用，导致有其它任务被阻塞时，却还有CPU/内核处于闲置的状态，造成资源的浪费。
+现在的操作系统都支持多核，那么每个线程都可以得到一个自己的内核，实现真正的“并行运算”。在这种情况下，多线程程序可以提高资源使用效率。Node.js是单线程程序，它只有一个event loop，也只占用一个内核。当 Node.j程序的event loop被CPU密集型的任务占用，导致有其它任务被阻塞时，却还有CPU/内核处于闲置的状态，造成资源的浪费。
 
 运行代码清单2中的代码，启动top(查看CPU的使用情况。当node的CPU占用率在100% 左右浮动时，系统的 CPU 占用率却只有30%左右。
 
@@ -141,3 +141,6 @@ process.on('message', function(m) {
   process.send({ result: fibo(m.v) });
 });
 ```
+结果跟我们预期的一样，输出.的任务不再受到阻塞，欢快地在屏幕上刷了一大堆.，然后每隔一段输出一个。我们再用top查看一下资源的使用情况，会发现有两个 node 进程，CPU 占用率也增加了很多。
+
+除了本次演示用到的child_process模块，node官方还提供给了cluster模块，还有热心团队Mozilla Identity开发的node-compute-cluster模块的等等都为node处理CPU密集型任务，感兴趣的同学可以自行查阅~
