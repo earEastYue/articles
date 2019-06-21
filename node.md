@@ -108,6 +108,7 @@ function fibo (n) {
 既然 Node.js 程序几乎完全运行在单个CPU/ 内核上，所以我们需要做些额外的工作才能提升它的扩展性。Node.js 提供了一组管理进程的API，还允许你给它编写本地扩展，所以有很多种不同的办法可以让程序的代码并行运行
 Node.js 中有管理子进程的child_process模块，可以用fork()方法创建新的子进程实例
 接下来我们fork()一个子进程，把计算斐波那契数列的任务交给它，这需要两个文件。
+
 代码清单 3. 主进程文件 forkParent.js
 ```
 var cp = require('child_process');
